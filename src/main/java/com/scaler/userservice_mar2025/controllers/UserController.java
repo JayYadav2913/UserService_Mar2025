@@ -5,6 +5,9 @@ import com.scaler.userservice_mar2025.dtos.LoginRequestDto;
 import com.scaler.userservice_mar2025.dtos.SignUpRequestDto;
 import com.scaler.userservice_mar2025.dtos.TokenDto;
 import com.scaler.userservice_mar2025.dtos.UserDto;
+import com.scaler.userservice_mar2025.exceptions.InvalidTokenException;
+import com.scaler.userservice_mar2025.exceptions.PasswordMismatchException;
+import com.scaler.userservice_mar2025.models.Token;
 import com.scaler.userservice_mar2025.models.User;
 import com.scaler.userservice_mar2025.services.UserService;
 import org.springframework.web.bind.annotation.*;
@@ -32,16 +35,20 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public TokenDto login(@RequestBody LoginRequestDto requestDto){
-        return null;
+    public TokenDto login(@RequestBody LoginRequestDto requestDto) throws PasswordMismatchException {
+
+        Token token=userService.login(requestDto.getEmail(),requestDto.getPassword());
+        return TokenDto.from(token);
     }
 
-    @GetMapping("/validate/{tokenValaue}")
-    public UserDto validateToken(@PathVariable("tokenValue") String tokenValue){
-        return null;
+    @GetMapping("/validate/{tokenValue}")
+    public UserDto validateToken(@PathVariable("tokenValue") String tokenValue) throws InvalidTokenException {
+
+        User user=userService.validateToken(tokenValue);
+        return UserDto.from(user);
     }
 
-    @PostMapping("/logout/{tokenValaue}")
+    @PostMapping("/logout/{tokenValue}")
     public void logOut(@PathVariable("tokenValue") String tokenValue){
        // userService.logout(tokenValue);
     }
