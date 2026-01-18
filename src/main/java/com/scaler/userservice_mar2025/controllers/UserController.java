@@ -5,6 +5,7 @@ import com.scaler.userservice_mar2025.dtos.LoginRequestDto;
 import com.scaler.userservice_mar2025.dtos.SignUpRequestDto;
 import com.scaler.userservice_mar2025.dtos.TokenDto;
 import com.scaler.userservice_mar2025.dtos.UserDto;
+import com.scaler.userservice_mar2025.models.User;
 import com.scaler.userservice_mar2025.services.UserService;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +21,14 @@ public class UserController {
 
     @PostMapping("/signup")
     public UserDto signUp(@RequestBody SignUpRequestDto requestDto) {
-        return null;
+       User user = userService.signUp(
+                requestDto.getName(),
+                requestDto.getEmail(),
+                requestDto.getPassword()
+        );
+
+
+        return UserDto.from(user);
     }
 
     @PostMapping("/login")
