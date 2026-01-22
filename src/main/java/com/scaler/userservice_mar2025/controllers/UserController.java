@@ -44,6 +44,8 @@ public class UserController {
     @GetMapping("/validate/{tokenValue}")
     public UserDto validateToken(@PathVariable("tokenValue") String tokenValue) throws InvalidTokenException {
 
+        System.out.println("Validating token: " + tokenValue);
+
         User user=userService.validateToken(tokenValue);
         return UserDto.from(user);
     }
