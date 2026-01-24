@@ -6,10 +6,12 @@ import com.scaler.userservice_mar2025.models.Token;
 import com.scaler.userservice_mar2025.models.User;
 import com.scaler.userservice_mar2025.repositories.TokenRepository;
 import com.scaler.userservice_mar2025.repositories.UserRepository;
+import io.jsonwebtoken.Jwts;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Optional;
@@ -52,7 +54,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Token login(String email, String password) throws PasswordMismatchException {
+    public String login(String email, String password) throws PasswordMismatchException {
         Optional<User> optionalUser=userRepository.findByEmail(email);
 
         if(optionalUser.isEmpty()) {
@@ -67,18 +69,34 @@ public class UserServiceImpl implements UserService {
         }
         // Login successful
         //Generate the Token
-        Token token = new Token();
-        token.setUser(user);
+//        Token token = new Token();
+//        token.setUser(user);
+//
+//        //
+//        token.setTokenValue(RandomStringUtils.randomAlphanumeric(128));
+//
+//        Calendar calendar=Calendar.getInstance();
+//        calendar.add(Calendar.DAY_OF_YEAR,30);
+//        Date expiryDate = calendar.getTime();
+//        token.setExpiryAt(expiryDate);
+//
+//        return tokenRepository.save(token);
 
-        //
-        token.setTokenValue(RandomStringUtils.randomAlphanumeric(128));
+        //Generate a JWT Token using JJWT library.
+        
+        String payload = "{\n" +
+                " \"email\":\"anil@gmail.com\",\n" +
+                " \"userId\":\"2\",\n" +
+                " \"roles\":[\"STUDENT\"],\n" +
+                " \"expiry\":\"2026-07-30T12:34:56Z\",\n" +
+                "}";
 
-        Calendar calendar=Calendar.getInstance();
-        calendar.add(Calendar.DAY_OF_YEAR,30);
-        Date expiryDate = calendar.getTime();
-        token.setExpiryAt(expiryDate);
+        byte[] payloadBytes = payload.getBytes(StandardCharsets.UTF_8);
 
-        return tokenRepository.save(token);
+        String token = Jwts.builder().content(payloadBytes).compact();
+
+        return token;
+
     }
 
     @Override
