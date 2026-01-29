@@ -17,17 +17,17 @@ public class ApplicationConfig {
     public BCryptPasswordEncoder getPasswordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity httpsecurity) throws Exception {
-        httpsecurity.csrf(csrf ->csrf.disable())
-
-        .cors(cors-> cors.disable())
-
-       .authorizeHttpRequests(
-                authorize -> authorize.anyRequest().permitAll()
-        );
-        return httpsecurity.build();
-    }
+//    @Bean
+//    public SecurityFilterChain filterChain(HttpSecurity httpsecurity) throws Exception {
+//        httpsecurity.csrf(csrf ->csrf.disable())
+//
+//        .cors(cors-> cors.disable())
+//
+//       .authorizeHttpRequests(
+//                authorize -> authorize.anyRequest().permitAll()
+//        );
+//        return httpsecurity.build();
+//    }
 
         @Bean
         public SecretKey getSecretKey() {
