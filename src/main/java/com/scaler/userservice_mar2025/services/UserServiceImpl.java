@@ -1,5 +1,8 @@
 package com.scaler.userservice_mar2025.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.scaler.userservice_mar2025.dtos.SendEmailDto;
 import com.scaler.userservice_mar2025.exceptions.InvalidTokenException;
 import com.scaler.userservice_mar2025.exceptions.PasswordMismatchException;
 import com.scaler.userservice_mar2025.models.Token;
@@ -11,6 +14,7 @@ import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.MacAlgorithm;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -25,15 +29,22 @@ public class UserServiceImpl implements UserService {
     private BCryptPasswordEncoder bCryptPasswordEncoder;
     private TokenRepository tokenRepository;
     private SecretKey secretKey;
+    private KafkaTemplate<String, String> kafkaTemplate;
+    private ObjectMapper objectMapper;
+
 
     public UserServiceImpl(UserRepository userRepository,
                            BCryptPasswordEncoder bCryptPasswordEncoder,
                            TokenRepository tokenRepository,
-                           SecretKey secretKey) {
+                           SecretKey secretKey,
+                           KafkaTemplate<String, String> kafkaTemplate,
+                            ObjectMapper objectMapper) {
         this.userRepository = userRepository;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
         this.tokenRepository = tokenRepository;
         this.secretKey = secretKey;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper= objectMapper;
 
     }
 
@@ -54,8 +65,29 @@ public class UserServiceImpl implements UserService {
         //Use Bcrypt PasswordEncoder to encode password
       //  BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
         user.setPassword(bCryptPasswordEncoder.encode(password));
-        return userRepository.save(user);
 
+        User savedUser = userRepository.save(user);
+
+
+
+        //Push a message to kafka to send a welcome email.
+
+        SendEmailDto emailDto =new SendEmailDto();
+        emailDto.setEmail(email);
+        emailDto.setSubject("Welcome to Scaler!");
+        emailDto.setBody("Welcome and new registration is done.");
+
+
+        try {
+            kafkaTemplate.send(
+                    "sendWelcomeEmail",
+                    objectMapper.writeValueAsString(emailDto)
+            );
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+        return savedUser;
     }
 
     @Override
