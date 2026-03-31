@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scaler.userservice_mar2025.dtos.SendEmailDto;
 import com.scaler.userservice_mar2025.exceptions.InvalidTokenException;
 import com.scaler.userservice_mar2025.exceptions.PasswordMismatchException;
+import com.scaler.userservice_mar2025.models.State;
 import com.scaler.userservice_mar2025.models.Token;
 import com.scaler.userservice_mar2025.models.User;
 import com.scaler.userservice_mar2025.repositories.TokenRepository;
@@ -12,14 +13,11 @@ import com.scaler.userservice_mar2025.repositories.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.MacAlgorithm;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
@@ -124,7 +122,7 @@ public class UserServiceImpl implements UserService {
 //                " \"roles\":[\"STUDENT\"],\n" +
 //                " \"expiry\":\"2026-07-30T12:34:56Z\",\n" +
 //                "}";
-
+        // Build JWT claims
         Map<String, Object> claims = new HashMap<>();
         claims.put("iss","scaler.com");
         claims.put("userId",user.getId());
@@ -134,12 +132,28 @@ public class UserServiceImpl implements UserService {
         Date expiryDate = calendar.getTime();
 
         claims.put("exp",expiryDate);
-        claims.put("roles",user.getRoles());
+        claims.put("roles",user.getRoles()
+                .stream()
+                .map(r -> r.getValue())
+                .toList()); //store role strings
+
+
 
 //        byte[] payloadBytes = payload.getBytes(StandardCharsets.UTF_8);
 //        String token = Jwts.builder().content(payloadBytes).compact();
 
         String jwtToken=Jwts.builder().claims(claims).signWith(secretKey).compact();
+
+        // Persist the token so logout() can invalidate it
+        Token token=new Token();
+        token.setTokenValue(jwtToken);
+        token.setUser(user);
+        token.setExpiryAt(expiryDate);
+        token.setState(State.ACTIVE);
+        tokenRepository.save(token);
+
+
+
         return jwtToken;
 
     }
@@ -161,6 +175,7 @@ public class UserServiceImpl implements UserService {
 //        return token.getUser();
 
         try {
+            // Step 1 — cryptographic verification (signature + expiry)
             JwtParser jwtParser = Jwts.parser()
                     .verifyWith(secretKey)
                     .build();
@@ -168,6 +183,23 @@ public class UserServiceImpl implements UserService {
             Claims claims = jwtParser
                     .parseSignedClaims(tokenValue)
                     .getPayload();
+
+            // Step 2 — check DB: has this token been logged out?
+            Optional<Token> optionalToken = tokenRepository.findByTokenValue(tokenValue);
+            if (optionalToken.isEmpty()) {
+                throw new InvalidTokenException("Token not Found");
+            }
+
+            Token token = optionalToken.get();
+
+            // State.DELETED means user has explicitly logged out
+            // BaseModel stores state; check it is still ACTIVE
+
+            if (token.getState() != null &&
+                    token.getState().toString().equals("DELETED")) {
+                throw new InvalidTokenException("Token has been invalidated. Please log in again.");
+            }
+
 
             Object userIdObj = claims.get("userId");
 
@@ -186,8 +218,40 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+
+
     @Override
-    public void logout() {
+    public void logout(String tokenValue) throws InvalidTokenException {
+
+
+        Optional<Token> optionalToken = tokenRepository.findByTokenValue(tokenValue);
+
+        // 2. If token doesn't exist in DB it was never issued
+        if (optionalToken.isEmpty()) {
+            throw new InvalidTokenException(
+                    "Token not found. It may have already been logged out or is invalid."
+            );
+        }
+
+        Token token = optionalToken.get();
+
+        // 3. Check it is not already invalidated
+        if (token.getState() != null &&
+                token.getState().toString().equals("DELETED")) {
+            // Already logged out — treat as success
+            return;
+        }
+
+        // 4. Soft-delete: mark the token as DELETED using the State enum
+
+        token.setState(
+                com.scaler.userservice_mar2025.models.State.DELETED
+                // If State enum is in ProductCatalog only, see note below FILE 6
+        );
+
+        // 5. Persist the change
+        tokenRepository.save(token);
 
     }
 }
+

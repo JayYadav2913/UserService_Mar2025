@@ -54,4 +54,9 @@ public class UserController {
     public void logOut(@PathVariable("tokenValue") String tokenValue){
        // userService.logout(tokenValue);
     }
+
+    @GetMapping("/sample")
+    public void sampleAPI(){
+        System.out.println("Received a call from ProductService!");
+    }
 }

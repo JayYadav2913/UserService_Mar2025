@@ -23,5 +23,15 @@ public abstract class BaseModel {
     @LastModifiedDate
     private Date lastModifiedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "state")
+    private State state;
+
+    @PrePersist
+    public void onCreate() {
+        if (this.state == null) {
+            this.state = State.ACTIVE;  // every new record starts as ACTIVE
+        }
+    }
 
 }

@@ -11,7 +11,7 @@ public interface TokenRepository extends JpaRepository<Token,Long> {
 
     Optional<Token> findByTokenValue(String tokenValue);
 
-    Token save(Token token);
+
 
     //validate the token.
     //Check if the token is present in the table with the given value
@@ -19,4 +19,6 @@ public interface TokenRepository extends JpaRepository<Token,Long> {
     Optional<Token> findByTokenValueAndExpiryAtGreaterThan(
             String tokenValue,
             Date expiryAt);
+
+    Token save(Token token);
 }
