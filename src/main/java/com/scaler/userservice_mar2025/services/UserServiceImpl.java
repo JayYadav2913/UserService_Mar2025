@@ -161,64 +161,45 @@ public class UserServiceImpl implements UserService {
     @Override
     public User validateToken(String tokenValue) throws InvalidTokenException {
 
-//        Optional<Token> optionalToken = tokenRepository.findByTokenValueAndExpiryAtGreaterThan(
-//                tokenValue,
-//                new Date());
-//
-//        if(optionalToken.isEmpty()){
-//            //Invalid Token
-//            throw new InvalidTokenException("Invalid token.");
-//        }
-//
-//        //Token is valid
-//        Token token = optionalToken.get();
-//        return token.getUser();
-
+        // Step 1 — cryptographic verification (signature + expiry)
+        // Throws JwtException automatically if signature is invalid or token is expired
+        Claims claims;
         try {
-            // Step 1 — cryptographic verification (signature + expiry)
             JwtParser jwtParser = Jwts.parser()
                     .verifyWith(secretKey)
                     .build();
 
-            Claims claims = jwtParser
+            claims = jwtParser
                     .parseSignedClaims(tokenValue)
                     .getPayload();
 
-            // Step 2 — check DB: has this token been logged out?
-            Optional<Token> optionalToken = tokenRepository.findByTokenValue(tokenValue);
-            if (optionalToken.isEmpty()) {
-                throw new InvalidTokenException("Token not Found");
-            }
-
-            Token token = optionalToken.get();
-
-            // State.DELETED means user has explicitly logged out
-            // BaseModel stores state; check it is still ACTIVE
-
-            if (token.getState() != null &&
-                    token.getState().toString().equals("DELETED")) {
-                throw new InvalidTokenException("Token has been invalidated. Please log in again.");
-            }
-
-
-            Object userIdObj = claims.get("userId");
-
-            Long userId;
-            if (userIdObj instanceof Integer) {
-                userId = ((Integer) userIdObj).longValue();
-            } else {
-                userId = (Long) userIdObj;
-            }
-
-            return userRepository.findById(userId)
-                    .orElseThrow(() -> new InvalidTokenException("User not found"));
-
         } catch (Exception e) {
+            // Only JWT-level failures (bad signature, expired, malformed) land here
             throw new InvalidTokenException("Invalid or expired JWT token");
         }
+
+        // Step 2 — check DB: has this token been logged out?
+        // With @Where(clause = "state = 'ACTIVE'") on BaseModel,
+        // findByTokenValue() returns empty if the token is DELETED (logged out)
+        // or if it was never issued at all — both are correctly rejected here.
+        Optional<Token> optionalToken = tokenRepository.findByTokenValue(tokenValue);
+        if (optionalToken.isEmpty()) {
+            throw new InvalidTokenException("Token not found or has been logged out. Please log in again.");
+        }
+
+        // Step 3 — extract userId from claims and load the User
+        Object userIdObj = claims.get("userId");
+
+        Long userId;
+        if (userIdObj instanceof Integer) {
+            userId = ((Integer) userIdObj).longValue();
+        } else {
+            userId = (Long) userIdObj;
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new InvalidTokenException("User not found"));
     }
-
-
 
     @Override
     public void logout(String tokenValue) throws InvalidTokenException {
